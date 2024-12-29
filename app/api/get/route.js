@@ -1,17 +1,43 @@
-import User from "@/models/user";
-import { currentUser } from "@clerk/nextjs";
-import mongoose from "mongoose";
+// app/api/get/route.js
 import { NextResponse } from "next/server";
+import { currentUser } from "@clerk/nextjs";
+import User from "@/models/user";
+import mongoose from "mongoose";
 
 export async function GET() {
-    const { emailAddresses } = await currentUser();
-    let email = emailAddresses[0].emailAddress;
-    try{
-        await mongoose.connect(process.env.NEXT_MONGO_URI);
-        let data = await User.findOne({ email });
-        return NextResponse.json({ data }, { status: 200 });
-    }
-    catch(error){
-        return NextResponse.json({ error: error.message }, { status: 500 });
+    try {
+        // Get the current user
+        const user = await currentUser();
+
+        // If no user is authenticated, return early
+        if (!user) {
+            return NextResponse.json({ data: null });
+        }
+
+        const email = user.emailAddresses[0].emailAddress;
+
+        // Connect to MongoDB
+        if (!mongoose.connections[0].readyState) {
+            await mongoose.connect(process.env.NEXT_MONGO_URI);
+        }
+
+        // Find user data
+        const userData = await User.findOne({ email });
+
+        // Always return a valid JSON response
+        return NextResponse.json({
+            data: userData || null
+        });
+
+    } catch (error) {
+        console.error('API Error:', error);
+
+        // Return a proper error response
+        return NextResponse.json({
+            error: "Internal Server Error",
+            message: error.message
+        }, {
+            status: 500
+        });
     }
 }
